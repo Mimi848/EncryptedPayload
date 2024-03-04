@@ -1,0 +1,14 @@
+{
+  "name": "EncriptedPayload",
+  "version": "1.0.0",
+  "description": "express js app to excript server keys provided by users",
+  "main": "app.js",
+  "license": "MIT",
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.1.0"
+  }
+}
