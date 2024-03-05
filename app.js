@@ -1,5 +1,5 @@
 const express = require("express");
-const crypto = require("crypto");
+const CryptoJS = require("crypto-js");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 
@@ -7,8 +7,13 @@ require("dotenv").config();
 const app = express();
 
 const serverKey = process.env.SERVER_KEY;
-const DEFAULT_KEY_SIZE = 32;
-const DEFAULT_ENCRYPTION_MODE = "aes-256-cbc";
+const DEFAULT_KEY_SIZE = 16;
+const ALLOWED_ENCRYPTION_MODES = ["CBC", "CFB", "CTR", "OFB", "ECB"];
+
+function generateSecureRandomString(length) {
+  const randomArray = CryptoJS.lib.WordArray.random(length);
+  return CryptoJS.enc.Base64.stringify(randomArray);
+}
 
 // Middleware
 app.use(helmet());
@@ -30,19 +35,31 @@ const isValidUser = (req, res, next) => {
 app.get("/api/server-key-encrypted", isValidUser, (req, res) => {
   try {
     const keySize = req.query.keySize || DEFAULT_KEY_SIZE;
-    const encryptionMode = req.query.encryptionMode || DEFAULT_ENCRYPTION_MODE;
+    const encryptionMode =
+      req.query.encryptionMode || ALLOWED_ENCRYPTION_MODES[0];
 
-    const encryptionKey = crypto.randomBytes(keySize);
-    const iv = crypto.randomBytes(16);
+    if (parseInt(keySize) < 8 && parseInt(keySize) > 1024)
+      throw { status: 400, message: "invalid keysize!" };
 
-    const cipher = crypto.createCipheriv(encryptionMode, encryptionKey, iv);
-    let encryptedKey = cipher.update(serverKey, "utf-8", "hex");
-    encryptedKey += cipher.final("hex");
+    if (!ALLOWED_ENCRYPTION_MODES.includes(encryptionMode))
+      throw {
+        status: 400,
+        message:
+          "invalid Encryption Mode selected, allowed Encryption Modes are: " +
+          ALLOWED_ENCRYPTION_MODES.join(", "),
+      };
+
+    const encryptedKey = CryptoJS.AES.encrypt(
+      generateSecureRandomString(keySize),
+      serverKey
+    ).toString();
 
     res.json({ encryptedKey });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res
+      .status(error.status || 500)
+      .json({ error: error.message || "Internal Server Error" });
   }
 });
 
